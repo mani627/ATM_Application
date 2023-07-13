@@ -6,6 +6,7 @@ const cors = require("cors");
 const dotenv = require('dotenv');
 const bodyparser = require("body-parser");
 const fileUpload = require('express-fileupload');
+const { log } = require("console");
 
 
 //serve static files
@@ -46,45 +47,84 @@ app.use("/", require('./login/Login_API'))
 io.on("connection", (socket) => {
     console.log(socket.id)
 
-
-
+    
+    socket.emit("user_id",socket.id)
 
     // send mssg
 
-    socket.on("send", (data) => {
-        console.log("k", data)
-        socket.broadcast.to(data.room).emit("toall", data)
+    socket.on("join_group", (data) => {
 
+        socket.join(data);
+        
+        const rooms = io.sockets.adapter.rooms.get(data);
+      
+        if (rooms) {
+            const members = Array.from(rooms); // Convert the Set of sockets to an array
+            console.log('Members in room:', members);
+        }
+        
     })
+
+
+// remove one member from room
+    socket.on('removeMember', ({ roomName, memberId }) => {
+        // Remove the specified member from the room
+        const room = io.sockets.adapter.rooms.get(roomName);
+        if (room) {
+          const socketId = Array.from(room).find(socketId => socketId === memberId);
+          console.log({socketId});
+          if (socketId) {
+            io.sockets.sockets.get(socketId).leave(roomName);
+            console.log(`Member ${socketId} removed from room ${roomName}`);
+          } else {
+            console.log(`Member ${memberId} is not found in room ${roomName}`);
+          }
+        } else {
+          console.log(`Room ${roomName} does not exist`);
+        }
+
+        const rooms = io.sockets.adapter.rooms.get(roomName);
+      
+        if (rooms) {
+            const members = Array.from(rooms); // Convert the Set of sockets to an array
+            console.log('Members in room:', members);
+        }
+      });
+
     // typing
-    socket.on("typing", (data) => {
-        console.log(data)
-        socket.broadcast.to(data.room).emit("toall_typing", data)
+    socket.on("send_msg", (data) => {
+       
+        socket.broadcast.to('Room1').emit("recieve_msg", data)
     })
 
     // join group
-    socket.on("join_group", (data) => {
-        // console.log(data)
-        socket.join(data.room)
+    // socket.on("join_group", (data) => {
+    //     // console.log(data)
+    //     socket.join(data.room)
 
-        socket.broadcast.to(data.room).emit("toall_join_noti", data)
 
-        console.log("joined")
-    })
+
+    //     console.log("joined")
+    // })
 
     // click outside
-    socket.on("cancel_typing", () => {
+    // socket.on("cancel_typing", () => {
 
-        socket.broadcast.emit("toall_cancel_typing")
-    })
+    //     socket.broadcast.emit("toall_cancel_typing")
+    // })
 
-    socket.on("disconnect", (data) => {
-        console.log("user offline", data);
-    })
+    // socket.on("disconnect", (data) => {
+    //     console.log("user offline", data);
+    // })
 
     // when user go back
-    socket.on("leave", (data) => {
-        socket.broadcast.to(data.room).emit("toall_leave", data.user)
+    // socket.on("leave", (data) => {
+    //     socket.broadcast.to(data.room).emit("toall_leave", data.user)
+    // })
+
+    socket.on("disconnectUser",()=>{
+        socket.disconnect()
+        console.log('User disconnected');
     })
 
 })
